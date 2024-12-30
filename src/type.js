@@ -224,7 +224,7 @@ function clearCache(type) {
  * @property {Object.<string,IOneOf>} [oneofs] Oneof descriptors
  * @property {Object.<string,IField>} fields Field descriptors
  * @property {number[][]} [extensions] Extension ranges
- * @property {number[][]} [reserved] Reserved ranges
+ * @property {Array.<number[]|string>} [reserved] Reserved ranges
  * @property {boolean} [group=false] Whether a legacy group or not
  */
 
@@ -299,13 +299,14 @@ Type.prototype.toJSON = function toJSON(toJSONOptions) {
  * @override
  */
 Type.prototype.resolveAll = function resolveAll() {
-    var fields = this.fieldsArray, i = 0;
-    while (i < fields.length)
-        fields[i++].resolve();
+    Namespace.prototype.resolveAll.call(this);
     var oneofs = this.oneofsArray; i = 0;
     while (i < oneofs.length)
         oneofs[i++].resolve();
-    return Namespace.prototype.resolveAll.call(this);
+    var fields = this.fieldsArray, i = 0;
+    while (i < fields.length)
+        fields[i++].resolve();
+    return this;
 };
 
 /**

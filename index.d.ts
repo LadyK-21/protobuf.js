@@ -1,4 +1,4 @@
-// DO NOT EDIT! This is a generated file. Edit the JSDoc in src/*.js instead and run 'npm run types'.
+// DO NOT EDIT! This is a generated file. Edit the JSDoc in src/*.js instead and run 'npm run build:types'.
 
 export as namespace protobuf;
 
@@ -160,8 +160,9 @@ export class Enum extends ReflectionObject {
      * @param [options] Declared options
      * @param [comment] The comment for this enum
      * @param [comments] The value comments for this enum
+     * @param [valuesOptions] The value options for this enum
      */
-    constructor(name: string, values?: { [k: string]: number }, options?: { [k: string]: any }, comment?: string, comments?: { [k: string]: string });
+    constructor(name: string, values?: { [k: string]: number }, options?: { [k: string]: any }, comment?: string, comments?: { [k: string]: string }, valuesOptions?: ({ [k: string]: { [k: string]: any } }|undefined));
 
     /** Enum values by id. */
     public valuesById: { [k: number]: string };
@@ -175,8 +176,23 @@ export class Enum extends ReflectionObject {
     /** Value comment texts, if any. */
     public comments: { [k: string]: string };
 
+    /** Values options, if any */
+    public valuesOptions?: { [k: string]: { [k: string]: any } };
+
+    /** Resolved values features, if any */
+    public _valuesFeatures?: { [k: string]: { [k: string]: any } };
+
+    /** Unresolved values features, if any */
+    public _valuesProtoFeatures?: { [k: string]: { [k: string]: any } };
+
     /** Reserved ranges, if any. */
     public reserved: (number[]|string)[];
+
+    /**
+     * Resolves value features
+     * @returns `this`
+     */
+    public resolve(): Enum;
 
     /**
      * Constructs an enum from an enum descriptor.
@@ -199,11 +215,12 @@ export class Enum extends ReflectionObject {
      * @param name Value name
      * @param id Value id
      * @param [comment] Comment, if any
+     * @param {Object.<string, *>|undefined} [options] Options, if any
      * @returns `this`
      * @throws {TypeError} If arguments are invalid
      * @throws {Error} If there is already a value with this name or id
      */
-    public add(name: string, id: number, comment?: string): Enum;
+    public add(name: string, id: number, comment?: string, options?: ({ [k: string]: any }|undefined)): Enum;
 
     /**
      * Removes a value from this enum
@@ -299,9 +316,6 @@ export class FieldBase extends ReflectionObject {
      * @param [comment] Comment associated with this field
      */
     constructor(name: string, id: number, type: string, rule?: (string|{ [k: string]: any }), extend?: (string|{ [k: string]: any }), options?: { [k: string]: any }, comment?: string);
-
-    /** Field rule, if any. */
-    public rule?: string;
 
     /** Field type. */
     public type: string;
@@ -602,8 +616,9 @@ export class Method extends ReflectionObject {
      * @param [responseStream] Whether the response is streamed
      * @param [options] Declared options
      * @param [comment] The comment for this method
+     * @param [parsedOptions] Declared options, properly parsed into an object
      */
-    constructor(name: string, type: (string|undefined), requestType: string, responseType: string, requestStream?: (boolean|{ [k: string]: any }), responseStream?: (boolean|{ [k: string]: any }), options?: { [k: string]: any }, comment?: string);
+    constructor(name: string, type: (string|undefined), requestType: string, responseType: string, requestStream?: (boolean|{ [k: string]: any }), responseStream?: (boolean|{ [k: string]: any }), options?: { [k: string]: any }, comment?: string, parsedOptions?: { [k: string]: any });
 
     /** Method type. */
     public type: string;
@@ -628,6 +643,9 @@ export class Method extends ReflectionObject {
 
     /** Comment for this method */
     public comment: (string|null);
+
+    /** Options properly parsed into an object */
+    public parsedOptions: any;
 
     /**
      * Constructs a method from a method descriptor.
@@ -666,6 +684,12 @@ export interface IMethod {
 
     /** Method options */
     options?: { [k: string]: any };
+
+    /** Method comments */
+    comment: string;
+
+    /** Method options properly parsed into an object */
+    parsedOptions?: { [k: string]: any };
 }
 
 /** Reflected namespace. */
@@ -851,7 +875,7 @@ export interface INamespace {
 type AnyExtensionField = (IExtensionField|IExtensionMapField);
 
 /** Any nested object descriptor. */
-type AnyNestedObject = (IEnum|IType|IService|AnyExtensionField|INamespace);
+type AnyNestedObject = (IEnum|IType|IService|AnyExtensionField|INamespace|IOneOf);
 
 /** Base class of all reflection objects. */
 export abstract class ReflectionObject {
@@ -864,6 +888,12 @@ export abstract class ReflectionObject {
 
     /** Unique name within its namespace. */
     public name: string;
+
+    /** Resolved Features. */
+    public _features: any;
+
+    /** Unresolved Features. */
+    public _protoFeatures: any;
 
     /** Parent namespace. */
     public parent: (Namespace|null);
@@ -906,6 +936,9 @@ export abstract class ReflectionObject {
      * @returns `this`
      */
     public resolve(): ReflectionObject;
+
+    /** Resolves child features from parent features */
+    public _resolveFeatures(): void;
 
     /**
      * Gets an option value.
@@ -1243,7 +1276,7 @@ export class Root extends NamespaceBase {
 
     /**
      * Loads a namespace descriptor into a root namespace.
-     * @param json Nameespace descriptor
+     * @param json Namespace descriptor
      * @param [root] Root namespace, defaults to create a new one if omitted
      * @returns Root namespace
      */
@@ -1302,7 +1335,7 @@ export class Root extends NamespaceBase {
 /**
  * Named roots.
  * This is where pbjs stores generated structures (the option `-r, --root` specifies a name).
- * Can also be used manually to make roots available accross modules.
+ * Can also be used manually to make roots available across modules.
  */
 export let roots: { [k: string]: Root };
 
@@ -1686,7 +1719,7 @@ export interface IType extends INamespace {
     extensions?: number[][];
 
     /** Reserved ranges */
-    reserved?: number[][];
+    reserved?: (number[]|string)[];
 
     /** Whether a legacy group or not */
     group?: boolean;
@@ -2182,9 +2215,10 @@ export namespace util {
      * @param dst Destination object
      * @param path dot '.' delimited path of the property to set
      * @param value the value to set
+     * @param overWrite whether or not to concatenate the values into an array or overwrite; defaults to false.
      * @returns Destination object
      */
-    function setProperty(dst: { [k: string]: any }, path: string, value: object): { [k: string]: any };
+    function setProperty(dst: { [k: string]: any }, path: string, value: object, overWrite: boolean): { [k: string]: any };
 
     /** Decorator root (TypeScript). */
     let decorateRoot: Root;

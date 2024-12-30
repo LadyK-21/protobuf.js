@@ -270,6 +270,9 @@ Field.prototype.resolve = function resolve() {
             this.typeDefault = null;
         else // instanceof Enum
             this.typeDefault = this.resolvedType.values[Object.keys(this.resolvedType.values)[0]]; // first defined
+    } else if (this.options && this.options.proto3_optional) {
+        // proto3 scalar value marked optional; should default to null
+        this.typeDefault = null;
     }
 
     // use explicitly set default value if present
@@ -316,6 +319,13 @@ Field.prototype.resolve = function resolve() {
     if (this.parent instanceof Type)
         this.parent.ctor.prototype[this.name] = this.defaultValue;
 
+
+    if (this.parent) {
+        var parentFeaturesCopy = Object.assign({}, this.parent._features);
+        this._features = Object.assign(parentFeaturesCopy, this._protoFeatures || {});
+    } else {
+        this._features = Object.assign({}, this._protoFeatures);
+    }
     return ReflectionObject.prototype.resolve.call(this);
 };
 

@@ -392,7 +392,7 @@ function writeInterfaceBody(element) {
     if (element.tsType)
         writeln(element.tsType.replace(/\r?\n|\r/g, "\n"));
     else if (element.properties && element.properties.length)
-        element.properties.forEach(writeProperty);
+        element.properties.forEach((property) => writeProperty(property));
     --indent;
     write("}");
 }
@@ -438,7 +438,7 @@ function handleElement(element, parent) {
                 handleEnum(element, parent);
                 break;
             }
-            // eslint-disable-line no-fallthrough
+            // eslint-disable-next-line no-fallthrough
         case "namespace":
             handleNamespace(element, parent);
             break;

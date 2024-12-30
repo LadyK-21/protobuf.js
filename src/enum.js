@@ -18,8 +18,9 @@ var Namespace = require("./namespace"),
  * @param {Object.<string,*>} [options] Declared options
  * @param {string} [comment] The comment for this enum
  * @param {Object.<string,string>} [comments] The value comments for this enum
+ * @param {Object.<string,Object<string,*>>|undefined} [valuesOptions] The value options for this enum
  */
-function Enum(name, values, options, comment, comments) {
+function Enum(name, values, options, comment, comments, valuesOptions) {
     ReflectionObject.call(this, name, options);
 
     if (values && typeof values !== "object")
@@ -50,6 +51,24 @@ function Enum(name, values, options, comment, comments) {
     this.comments = comments || {};
 
     /**
+     * Values options, if any
+     * @type {Object<string, Object<string, *>>|undefined}
+     */
+    this.valuesOptions = valuesOptions;
+
+    /**
+     * Resolved values features, if any
+     * @type {Object<string, Object<string, *>>|undefined}
+     */
+    this._valuesFeatures = {};
+
+    /**
+     * Unresolved values features, if any
+     * @type {Object<string, Object<string, *>>|undefined}
+     */
+    this._valuesProtoFeatures = {};
+
+    /**
      * Reserved ranges, if any.
      * @type {Array.<number[]|string>}
      */
@@ -64,6 +83,22 @@ function Enum(name, values, options, comment, comments) {
             if (typeof values[keys[i]] === "number") // use forward entries only
                 this.valuesById[ this.values[keys[i]] = values[keys[i]] ] = keys[i];
 }
+
+/**
+ * Resolves value features
+ * @returns {Enum} `this`
+ */
+Enum.prototype.resolve = function resolve() {
+    ReflectionObject.prototype.resolve.call(this);
+
+    for (var key of Object.keys(this._valuesProtoFeatures)) {
+        var parentFeaturesCopy = Object.assign({}, this._features);
+        this._valuesFeatures[key] = Object.assign(parentFeaturesCopy, this._valuesProtoFeatures[key] || {});
+    }
+
+    return this;
+};
+
 
 /**
  * Enum descriptor.
@@ -93,11 +128,12 @@ Enum.fromJSON = function fromJSON(name, json) {
 Enum.prototype.toJSON = function toJSON(toJSONOptions) {
     var keepComments = toJSONOptions ? Boolean(toJSONOptions.keepComments) : false;
     return util.toObject([
-        "options"  , this.options,
-        "values"   , this.values,
-        "reserved" , this.reserved && this.reserved.length ? this.reserved : undefined,
-        "comment"  , keepComments ? this.comment : undefined,
-        "comments" , keepComments ? this.comments : undefined
+        "options"       , this.options,
+        "valuesOptions" , this.valuesOptions,
+        "values"        , this.values,
+        "reserved"      , this.reserved && this.reserved.length ? this.reserved : undefined,
+        "comment"       , keepComments ? this.comment : undefined,
+        "comments"      , keepComments ? this.comments : undefined
     ]);
 };
 
@@ -106,11 +142,12 @@ Enum.prototype.toJSON = function toJSON(toJSONOptions) {
  * @param {string} name Value name
  * @param {number} id Value id
  * @param {string} [comment] Comment, if any
+ * @param {Object.<string, *>|undefined} [options] Options, if any
  * @returns {Enum} `this`
  * @throws {TypeError} If arguments are invalid
  * @throws {Error} If there is already a value with this name or id
  */
-Enum.prototype.add = function add(name, id, comment) {
+Enum.prototype.add = function add(name, id, comment, options) {
     // utilized by the parser but not by .fromJSON
 
     if (!util.isString(name))
@@ -135,6 +172,27 @@ Enum.prototype.add = function add(name, id, comment) {
     } else
         this.valuesById[this.values[name] = id] = name;
 
+    if (options) {
+        if (this.valuesOptions === undefined)
+            this.valuesOptions = {};
+        this.valuesOptions[name] = options || null;
+
+        for (var key of Object.keys(this.valuesOptions)) {
+            var features = Array.isArray(this.valuesOptions[key]) ? this.valuesOptions[key].find(x => {return Object.prototype.hasOwnProperty.call(x, "features");}) : this.valuesOptions[key] === "features";
+            if (features) {
+                this._valuesProtoFeatures[key] = features.features;
+            } else {
+                this._valuesProtoFeatures[key] = {};
+            }
+        }
+    }
+
+    for (var enumValue of Object.keys(this.values)) {
+        if (!this._valuesProtoFeatures[enumValue]) {
+            this._valuesProtoFeatures[enumValue] = {};
+        }
+    }
+
     this.comments[name] = comment || null;
     return this;
 };
@@ -158,6 +216,8 @@ Enum.prototype.remove = function remove(name) {
     delete this.valuesById[val];
     delete this.values[name];
     delete this.comments[name];
+    if (this.valuesOptions)
+        delete this.valuesOptions[name];
 
     return this;
 };
